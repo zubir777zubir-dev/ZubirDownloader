@@ -50,10 +50,10 @@ private val TextDim = Color(0xFF9AA1AD)
 
 enum class Fmt { MP4, MP3 }
 
-enum class Platform(val title: String, val icon: String, val hosts: List<String>) {
-    YOUTUBE("يوتيوب", "▶️", listOf("youtube.com", "youtu.be")),
-    TIKTOK("تيك توك", "🎵", listOf("tiktok.com")),
-    INSTAGRAM("انستغرام", "📷", listOf("instagram.com"))
+enum class Platform(val title: String, val logo: Int, val hosts: List<String>) {
+    YOUTUBE("يوتيوب", R.drawable.logo_youtube, listOf("youtube.com", "youtu.be")),
+    TIKTOK("تيك توك", R.drawable.logo_tiktok, listOf("tiktok.com")),
+    INSTAGRAM("انستغرام", R.drawable.logo_instagram, listOf("instagram.com"))
 }
 
 sealed interface UiState {
