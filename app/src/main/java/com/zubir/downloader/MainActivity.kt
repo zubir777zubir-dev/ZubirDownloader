@@ -39,6 +39,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
 
 private val Bg = Color(0xFF14161B)
 private val Surface1 = Color(0xFF1E2128)
