@@ -39,8 +39,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
-import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
 
 private val Bg = Color(0xFF14161B)
 private val Surface1 = Color(0xFF1E2128)
@@ -50,10 +48,10 @@ private val TextDim = Color(0xFF9AA1AD)
 
 enum class Fmt { MP4, MP3 }
 
-enum class Platform(val title: String, val logo: Int, val hosts: List<String>) {
-    YOUTUBE("يوتيوب", R.drawable.logo_youtube, listOf("youtube.com", "youtu.be")),
-    TIKTOK("تيك توك", R.drawable.logo_tiktok, listOf("tiktok.com")),
-    INSTAGRAM("انستغرام", R.drawable.logo_instagram, listOf("instagram.com"))
+enum class Platform(val title: String, val icon: String, val hosts: List<String>) {
+    YOUTUBE("يوتيوب", "▶️", listOf("youtube.com", "youtu.be")),
+    TIKTOK("تيك توك", "🎵", listOf("tiktok.com")),
+    INSTAGRAM("انستغرام", "📷", listOf("instagram.com"))
 }
 
 sealed interface UiState {
@@ -83,7 +81,6 @@ class DownloaderViewModel(private val app: Application) : AndroidViewModel(app) 
             state = UiState.Error("تعذر تهيئة المحرك: ${e.message}")
             return@launch
         }
-        // تحديث محرك yt-dlp لأحدث نسخة (مهم جداً لنجاح التحميل)
         try {
             YoutubeDL.getInstance().updateYoutubeDL(app)
         } catch (_: Exception) {
@@ -91,16 +88,15 @@ class DownloaderViewModel(private val app: Application) : AndroidViewModel(app) 
     }
 
     fun selectPlatform(p: Platform) {
-    job?.cancel()
-    platform = p
-    url = ""; info = null; infoFailed = false; state = UiState.Idle
-}
+        platform = p
+        url = ""; info = null; infoFailed = false; state = UiState.Idle
+    }
 
-fun setLink(text: String) {
-    job?.cancel()
-    val link = Regex("https?://\\S+").find(text)?.value ?: text.trim()
-    url = link; info = null; infoFailed = false; state = UiState.Idle
-}
+    fun setLink(text: String) {
+        val link = Regex("https?://\\S+").find(text)?.value ?: text.trim()
+        url = link; info = null; infoFailed = false; state = UiState.Idle
+    }
+
     private fun matchesPlatform(): Boolean =
         platform?.hosts?.any { url.contains(it, ignoreCase = true) } == true
 
@@ -108,34 +104,27 @@ fun setLink(text: String) {
         e.message?.lineSequence()?.lastOrNull { it.isNotBlank() }?.take(160) ?: "خطأ غير معروف"
 
     fun fetchInfo() {
-    if (url.isBlank()) return
-    if (!matchesPlatform()) {
-        state = UiState.Error("الرابط ليس من منصة ${platform?.title}، تأكد من المنصة المختارة")
-        return
-    }
-    job?.cancel()
-    val target = url
-    job = viewModelScope.launch(Dispatchers.IO) {
-        state = UiState.Loading
-        infoFailed = false
-        try {
-            initJob.join()
-            val result = YoutubeDL.getInstance().getInfo(
-                YoutubeDLRequest(target.trim()).apply { addOption("--no-playlist") }
-            )
-            if (url == target) { info = result; state = UiState.Idle }
-        } catch (e: Exception) {
-            if (url == target) {
-                if (target.contains("/photo/")) {
-                    state = UiState.Error("هذا الرابط منشور صور وليس فيديو، ولا يمكن تحميله")
-                } else {
-                    infoFailed = true
-                    state = UiState.Error("تعذرت المعاينة (${cleanError(e)}). يمكنك المحاولة بالتحميل مباشرة.")
-                }
+        if (url.isBlank()) return
+        if (!matchesPlatform()) {
+            state = UiState.Error("الرابط ليس من منصة ${platform?.title}، تأكد من المنصة المختارة")
+            return
+        }
+        job?.cancel()
+        job = viewModelScope.launch(Dispatchers.IO) {
+            state = UiState.Loading
+            infoFailed = false
+            try {
+                initJob.join()
+                info = YoutubeDL.getInstance().getInfo(
+                    YoutubeDLRequest(url.trim()).apply { addOption("--no-playlist") }
+                )
+                state = UiState.Idle
+            } catch (e: Exception) {
+                infoFailed = true
+                state = UiState.Error("تعذرت المعاينة (${cleanError(e)}). يمكنك المحاولة بالتحميل مباشرة.")
             }
         }
     }
-}
 
     fun download() {
         job?.cancel()
@@ -234,7 +223,6 @@ fun Screen(vm: DownloaderViewModel) {
         Text("ZubirDownloader", color = Accent, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Text("اختر المنصة أولاً", color = TextDim, fontSize = 14.sp)
 
-        // ───── اختيار المنصة ─────
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             Platform.entries.forEach { p ->
                 val selected = platform == p
@@ -249,11 +237,7 @@ fun Screen(vm: DownloaderViewModel) {
                         Modifier.fillMaxWidth().padding(vertical = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Image(
-    painter = painterResource(p.logo),
-    contentDescription = p.title,
-    modifier = Modifier.size(36.dp)
-)
+                        Text(p.icon, fontSize = 28.sp)
                         Spacer(Modifier.height(6.dp))
                         Text(
                             p.title, color = if (selected) Accent else TextMain,
@@ -316,49 +300,4 @@ fun Screen(vm: DownloaderViewModel) {
         }
 
         if (showOptions) {
-            Text("الصيغة", color = TextDim, fontSize = 13.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Fmt.entries.forEach { f ->
-                    FilterChip(
-                        selected = vm.format == f, onClick = { vm.format = f },
-                        label = { Text(if (f == Fmt.MP4) "فيديو MP4" else "صوت MP3") }
-                    )
-                }
-            }
-
-            if (vm.format == Fmt.MP4) {
-                Text("الدقة", color = TextDim, fontSize = 13.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    listOf(1080, 720, 480, 360).forEach { q ->
-                        FilterChip(
-                            selected = vm.quality == q, onClick = { vm.quality = q },
-                            label = { Text("${q}p") }
-                        )
-                    }
-                }
-            }
-
-            when (st) {
-                is UiState.Downloading -> {
-                    LinearProgressIndicator(
-                        progress = { st.progress },
-                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                        color = Accent, trackColor = Surface1
-                    )
-                    Text("${(st.progress * 100).toInt()}%", color = TextDim)
-                    OutlinedButton(onClick = { vm.cancel() }, modifier = Modifier.fillMaxWidth()) { Text("إلغاء") }
-                }
-                else -> Button(
-                    onClick = { vm.download() },
-                    modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(14.dp)
-                ) { Text("تحميل", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
-            }
-        }
-
-        when (st) {
-            is UiState.Done -> Text("✔ تم الحفظ في: Download/ZubirDownloader\n${st.name}", color = Accent)
-            is UiState.Error -> Text(st.msg, color = Color(0xFFE5877F))
-            else -> {}
-        }
-    }
-}
+            Text("الصيغة",
