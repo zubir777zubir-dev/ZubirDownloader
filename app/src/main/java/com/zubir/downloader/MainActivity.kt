@@ -91,15 +91,16 @@ class DownloaderViewModel(private val app: Application) : AndroidViewModel(app) 
     }
 
     fun selectPlatform(p: Platform) {
-        platform = p
-        url = ""; info = null; infoFailed = false; state = UiState.Idle
-    }
+    job?.cancel()
+    platform = p
+    url = ""; info = null; infoFailed = false; state = UiState.Idle
+}
 
-    fun setLink(text: String) {
-        val link = Regex("https?://\\S+").find(text)?.value ?: text.trim()
-        url = link; info = null; infoFailed = false; state = UiState.Idle
-    }
-
+fun setLink(text: String) {
+    job?.cancel()
+    val link = Regex("https?://\\S+").find(text)?.value ?: text.trim()
+    url = link; info = null; infoFailed = false; state = UiState.Idle
+}
     private fun matchesPlatform(): Boolean =
         platform?.hosts?.any { url.contains(it, ignoreCase = true) } == true
 
@@ -107,27 +108,34 @@ class DownloaderViewModel(private val app: Application) : AndroidViewModel(app) 
         e.message?.lineSequence()?.lastOrNull { it.isNotBlank() }?.take(160) ?: "خطأ غير معروف"
 
     fun fetchInfo() {
-        if (url.isBlank()) return
-        if (!matchesPlatform()) {
-            state = UiState.Error("الرابط ليس من منصة ${platform?.title}، تأكد من المنصة المختارة")
-            return
-        }
-        job?.cancel()
-        job = viewModelScope.launch(Dispatchers.IO) {
-            state = UiState.Loading
-            infoFailed = false
-            try {
-                initJob.join()
-                info = YoutubeDL.getInstance().getInfo(
-                    YoutubeDLRequest(url.trim()).apply { addOption("--no-playlist") }
-                )
-                state = UiState.Idle
-            } catch (e: Exception) {
-                infoFailed = true
-                state = UiState.Error("تعذرت المعاينة (${cleanError(e)}). يمكنك المحاولة بالتحميل مباشرة.")
+    if (url.isBlank()) return
+    if (!matchesPlatform()) {
+        state = UiState.Error("الرابط ليس من منصة ${platform?.title}، تأكد من المنصة المختارة")
+        return
+    }
+    job?.cancel()
+    val target = url
+    job = viewModelScope.launch(Dispatchers.IO) {
+        state = UiState.Loading
+        infoFailed = false
+        try {
+            initJob.join()
+            val result = YoutubeDL.getInstance().getInfo(
+                YoutubeDLRequest(target.trim()).apply { addOption("--no-playlist") }
+            )
+            if (url == target) { info = result; state = UiState.Idle }
+        } catch (e: Exception) {
+            if (url == target) {
+                if (target.contains("/photo/")) {
+                    state = UiState.Error("هذا الرابط منشور صور وليس فيديو، ولا يمكن تحميله")
+                } else {
+                    infoFailed = true
+                    state = UiState.Error("تعذرت المعاينة (${cleanError(e)}). يمكنك المحاولة بالتحميل مباشرة.")
+                }
             }
         }
     }
+}
 
     fun download() {
         job?.cancel()
