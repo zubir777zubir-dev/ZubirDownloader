@@ -300,4 +300,49 @@ fun Screen(vm: DownloaderViewModel) {
         }
 
         if (showOptions) {
-            Text("الصيغة",
+            Text("الصيغة", color = TextDim, fontSize = 13.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Fmt.entries.forEach { f ->
+                    FilterChip(
+                        selected = vm.format == f, onClick = { vm.format = f },
+                        label = { Text(if (f == Fmt.MP4) "فيديو MP4" else "صوت MP3") }
+                    )
+                }
+            }
+
+            if (vm.format == Fmt.MP4) {
+                Text("الدقة", color = TextDim, fontSize = 13.sp)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    listOf(1080, 720, 480, 360).forEach { q ->
+                        FilterChip(
+                            selected = vm.quality == q, onClick = { vm.quality = q },
+                            label = { Text("${q}p") }
+                        )
+                    }
+                }
+            }
+
+            when (st) {
+                is UiState.Downloading -> {
+                    LinearProgressIndicator(
+                        progress = { st.progress },
+                        modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                        color = Accent, trackColor = Surface1
+                    )
+                    Text("${(st.progress * 100).toInt()}%", color = TextDim)
+                    OutlinedButton(onClick = { vm.cancel() }, modifier = Modifier.fillMaxWidth()) { Text("إلغاء") }
+                }
+                else -> Button(
+                    onClick = { vm.download() },
+                    modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(14.dp)
+                ) { Text("تحميل", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
+            }
+        }
+
+        when (st) {
+            is UiState.Done -> Text("✔ تم الحفظ في: Download/ZubirDownloader\n${st.name}", color = Accent)
+            is UiState.Error -> Text(st.msg, color = Color(0xFFE5877F))
+            else -> {}
+        }
+    }
+}
