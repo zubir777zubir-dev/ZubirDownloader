@@ -241,7 +241,11 @@ fun Screen(vm: DownloaderViewModel) {
                         Modifier.fillMaxWidth().padding(vertical = 16.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(p.icon, fontSize = 28.sp)
+                        Image(
+    painter = painterResource(p.logo),
+    contentDescription = p.title,
+    modifier = Modifier.size(36.dp)
+)
                         Spacer(Modifier.height(6.dp))
                         Text(
                             p.title, color = if (selected) Accent else TextMain,
